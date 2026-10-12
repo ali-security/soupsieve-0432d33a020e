@@ -27,6 +27,12 @@ class TestSoupContains(util.TestCase):
             flags=util.HTML
         )
 
+    def test_contains_unclosed_quotes(self):
+        """Test bad contains value fails for syntax error, not timeout error."""
+
+        self.assert_raises_no_timeout('span:-soup-contains("' + ('x' * 300), sv.SelectorSyntaxError)
+        self.assert_raises_no_timeout("span:-soup-contains('" + ('x' * 300), sv.SelectorSyntaxError)
+
     def test_contains_quoted_with_space(self):
         """Test contains quoted with spaces."""
 

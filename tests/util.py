@@ -1,7 +1,9 @@
 """Test utilities."""
 import unittest
 import bs4
+import signal
 import textwrap
+import time
 import soupsieve as sv
 import pytest
 
@@ -102,6 +104,40 @@ class TestCase(unittest.TestCase):
         print('----Running Assert Test----')
         with self.assertRaises(exception):
             self.compile_pattern(pattern, namespaces=namespace, custom=custom)
+
+    def assert_raises_no_timeout(self, pattern, exception, timeout=3):
+        """
+        Assert raises the expected exception, not a timeout error.
+
+        Used to ensure bad patterns do not cause catastrophic backtracking.
+        `SIGALRM` is not available on all platforms (Windows), so when it is
+        missing, we just verify that the pattern fails in a reasonable time.
+        """
+
+        print('----Running Assert No Timeout Test----')
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError
+
+        use_alarm = hasattr(signal, 'SIGALRM')
+        if use_alarm:
+            previous = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout)
+
+        passed = False
+        start = time.perf_counter()
+        try:
+            with self.assertRaises(exception):
+                sv.compile(pattern)
+            passed = True
+        except TimeoutError:
+            pass
+        finally:
+            if use_alarm:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, previous if previous is not None else signal.SIG_DFL)
+        self.assertTrue(passed)
+        self.assertLess(time.perf_counter() - start, timeout)
 
     def assert_selector(self, markup, selectors, expected_ids, namespaces={}, custom=None, flags=0):
         """Assert selector."""
